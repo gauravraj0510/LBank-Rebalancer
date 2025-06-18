@@ -122,29 +122,18 @@ class LBankAPI:
             print(f"\nWarning: Order amount {amount_float} is below minimum quantity {min_quantity}")
             return {"result": False, "msg": "Order amount below minimum quantity"}
         
-        # For market buy orders, we need to specify both price and amount
-        if order_type == "buy_market":
-            params = {
-                "api_key": self.api_key,
-                "symbol": symbol,
-                "type": order_type,
-                "amount": amount,
-                "price": amount,  # For market buy, price should be same as amount
-                "timestamp": timestamp,
-                "echostr": echostr,
-                "signature_method": "RSA"
-            }
-        else:
-            params = {
-                "api_key": self.api_key,
-                "symbol": symbol,
-                "type": order_type,
-                "amount": amount,
-                "price": "1",  # For market sell, price can be 1
-                "timestamp": timestamp,
-                "echostr": echostr,
-                "signature_method": "RSA"
-            }
+        # For market buy orders, we specify USDT amount
+        # For market sell orders, we specify token amount
+        params = {
+            "api_key": self.api_key,
+            "symbol": symbol,
+            "type": order_type,
+            "amount": amount,
+            "price": "0",  # For market orders, price should be 0
+            "timestamp": timestamp,
+            "echostr": echostr,
+            "signature_method": "RSA"
+        }
         
         # Generate signature
         params["sign"] = self._generate_signature(params)
@@ -157,7 +146,7 @@ class LBankAPI:
         print(f"\nPlacing {order_type} order with parameters:")
         print(f"Symbol: {symbol}")
         print(f"Amount: {amount}")
-        print(f"Price: {params['price']}")
+        print(f"Price: 0")
         
         response = requests.post(
             f"{self.base_url}/v2/supplement/create_order.do",
