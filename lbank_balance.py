@@ -108,11 +108,18 @@ class LBankAPI:
         # Convert amount to float for comparison
         amount_float = float(amount)
         
-        # Minimum order quantity for MNTL (adjust this value based on exchange requirements)
-        MIN_ORDER_QUANTITY = 11000
+        # Minimum order quantities
+        MIN_MNTL_QUANTITY = 11000  # Minimum MNTL amount for sell orders
+        MIN_USDT_QUANTITY = 5     # Minimum USDT amount for buy orders
         
-        if amount_float < MIN_ORDER_QUANTITY:
-            print(f"\nWarning: Order amount {amount_float} is below minimum quantity {MIN_ORDER_QUANTITY}")
+        # Check minimum quantity based on order type
+        if order_type.startswith("buy"):
+            min_quantity = MIN_USDT_QUANTITY
+        else:
+            min_quantity = MIN_MNTL_QUANTITY
+            
+        if amount_float < min_quantity:
+            print(f"\nWarning: Order amount {amount_float} is below minimum quantity {min_quantity}")
             return {"result": False, "msg": "Order amount below minimum quantity"}
         
         params = {
@@ -234,7 +241,7 @@ def check_and_rebalance(client: LBankAPI):
                         print(f"USDT to spend: {usdt_to_spend}")
                         print(f"Expected MNTL to receive: {usdt_to_spend / current_price}")
                         
-                        if usdt_to_spend >= 11000 * current_price:  # Minimum order value in USDT
+                        if usdt_to_spend >= 10:  # Minimum USDT order value
                             print(f"\nPlacing buy_market order for {usdt_to_spend} USDT")
                             order_response = client.place_market_order(
                                 symbol="mntl_usdt",
