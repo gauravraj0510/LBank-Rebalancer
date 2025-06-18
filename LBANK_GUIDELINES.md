@@ -94,6 +94,10 @@ return example:
 HTTP request
 POST `/v2/supplement/create_order.do`
 
+market order
+`buy_market`: price must be passed, quoted asset quantity;
+`sell_market`: amount must be passed, basic asset quantity;
+
 request parameters
 
 | Parameter name | Parameter type | Required | Description |
