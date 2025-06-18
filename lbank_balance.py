@@ -7,6 +7,12 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 
+def trim_print(text: str, max_length: int = 500) -> str:
+    """Trim text to max_length and add ellipsis if truncated"""
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    return text
+
 class LBankAPI:
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
@@ -26,17 +32,17 @@ class LBankAPI:
             # Import as RSA key
             return RSA.import_key(key_bytes)
         except Exception as e:
-            print(f"Error loading private key: {str(e)}")
+            print(trim_print(f"Error loading private key: {str(e)}"))
             raise
         
     def _generate_signature(self, params: Dict[str, Any]) -> str:
         # Sort parameters alphabetically
         sorted_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-        print(f"\nDebug - Sorted parameters: {sorted_params}")
+        print(trim_print(f"\nDebug - Sorted parameters: {sorted_params}"))
         
         # Create MD5 hash of parameters and convert to uppercase
         md5_hash = hashlib.md5(sorted_params.encode()).hexdigest().upper()
-        print(f"Debug - MD5 hash: {md5_hash}")
+        print(trim_print(f"Debug - MD5 hash: {md5_hash}"))
         
         try:
             # Get private key
@@ -50,11 +56,11 @@ class LBankAPI:
             
             # Base64 encode the signature
             final_signature = base64.b64encode(signature).decode()
-            print(f"Debug - Final signature: {final_signature}")
+            print(trim_print(f"Debug - Final signature: {final_signature}"))
             return final_signature
             
         except Exception as e:
-            print(f"Error generating signature: {str(e)}")
+            print(trim_print(f"Error generating signature: {str(e)}"))
             raise
 
     def get_account_balance(self) -> Dict[str, Any]:
@@ -77,9 +83,9 @@ class LBankAPI:
             "contentType": "application/x-www-form-urlencoded"
         }
         
-        print(f"\nDebug - Request URL: {self.base_url}/v2/supplement/user_info_account.do")
-        print(f"Debug - Request Headers: {headers}")
-        print(f"Debug - Request Parameters: {params}")
+        print(trim_print(f"\nDebug - Request URL: {self.base_url}/v2/supplement/user_info_account.do"))
+        print(trim_print(f"Debug - Request Headers: {headers}"))
+        print(trim_print(f"Debug - Request Parameters: {params}"))
         
         response = requests.post(
             f"{self.base_url}/v2/supplement/user_info_account.do",
@@ -87,9 +93,9 @@ class LBankAPI:
             headers=headers
         )
         
-        print(f"\nDebug - Response Status Code: {response.status_code}")
-        print(f"Debug - Response Headers: {response.headers}")
-        print(f"Debug - Response Content: {response.text}")
+        print(trim_print(f"\nDebug - Response Status Code: {response.status_code}"))
+        print(trim_print(f"Debug - Response Headers: {response.headers}"))
+        print(trim_print(f"Debug - Response Content: {response.text}"))
         
         return response.json()
 
@@ -110,9 +116,9 @@ def main():
         print("-" * 40)
         for key, value in balance_data.items():
             if isinstance(value, (list, tuple)):
-                print(f"{key}: Array with {len(value)} items")
+                print(trim_print(f"{key}: Array with {len(value)} items"))
             else:
-                print(f"{key}: {value}")
+                print(trim_print(f"{key}: {value}"))
         
         # Extract mntl and usdt balances
         mntl_balance = None
@@ -129,23 +135,23 @@ def main():
         print("-" * 40)
         
         if mntl_balance:
-            print(f"mntl Balance:")
-            print(f"  Free: {mntl_balance['free']}")
-            print(f"  Locked: {mntl_balance['locked']}")
+            print(trim_print(f"mntl Balance:"))
+            print(trim_print(f"  Free: {mntl_balance['free']}"))
+            print(trim_print(f"  Locked: {mntl_balance['locked']}"))
         else:
             print("No mntl balance found")
             
         print()
         
         if usdt_balance:
-            print(f"usdt Balance:")
-            print(f"  Free: {usdt_balance['free']}")
-            print(f"  Locked: {usdt_balance['locked']}")
+            print(trim_print(f"usdt Balance:"))
+            print(trim_print(f"  Free: {usdt_balance['free']}"))
+            print(trim_print(f"  Locked: {usdt_balance['locked']}"))
         else:
             print("No usdt balance found")
             
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
+        print(trim_print(f"Error occurred: {str(e)}"))
 
 if __name__ == "__main__":
     main() 
