@@ -137,7 +137,7 @@ class LBankAPI:
         print(f"\nPlacing {order_type} order with parameters:")
         print(f"Symbol: {symbol}")
         print(f"Amount: {amount}")
-        print(f"Price: 0")
+        print(f"Price: 1")
         
         response = requests.post(
             f"{self.base_url}/v2/supplement/create_order.do",
@@ -146,6 +146,18 @@ class LBankAPI:
         )
         
         return response.json()
+
+    def get_current_price(self, symbol: str) -> float:
+        """Get current price for a trading pair"""
+        try:
+            response = requests.get(f"{self.base_url}/v2/ticker.do?symbol={symbol}")
+            data = response.json()
+            if data.get("result") == "true" and "data" in data:
+                return float(data["data"][0]["ticker"]["latest"])
+            return None
+        except Exception as e:
+            print(f"Error getting current price: {str(e)}")
+            return None
 
 def check_and_rebalance(client: LBankAPI):
     """Check balance and rebalance if needed"""
@@ -205,13 +217,38 @@ def check_and_rebalance(client: LBankAPI):
                 
                 # Place market order based on difference
                 if difference < 0:  # Need to buy
-                    print(f"\nPlacing buy_market order for {abs_difference} MNTL")
-                    order_response = client.place_market_order(
-                        symbol="mntl_usdt",
-                        order_type="buy_market",
-                        amount=str(abs_difference)
-                    )
-                    print(f"Order Response: {order_response}")
+                    # Get current MNTL price
+                    current_price = client.get_current_price("mntl_usdt")
+                    if current_price is None:
+                        print("Could not fetch current MNTL price, using default estimate")
+                        current_price = 0.025
+                    
+                    # Calculate maximum possible buy amount based on USDT balance
+                    if usdt_balance:
+                        available_usdt = float(usdt_balance['free'])
+                        max_mntl_to_buy = available_usdt / current_price
+                        
+                        # Use the smaller of the two amounts
+                        order_amount = min(abs_difference, max_mntl_to_buy)
+                        
+                        print(f"\nAvailable USDT: {available_usdt}")
+                        print(f"Current MNTL price: {current_price} USDT")
+                        print(f"Maximum MNTL to buy: {max_mntl_to_buy}")
+                        print(f"Desired amount: {abs_difference}")
+                        print(f"Final order amount: {order_amount}")
+                        
+                        if order_amount >= 11000:  # Minimum order quantity
+                            print(f"\nPlacing buy_market order for {order_amount} MNTL")
+                            order_response = client.place_market_order(
+                                symbol="mntl_usdt",
+                                order_type="buy_market",
+                                amount=str(order_amount)
+                            )
+                            print(f"Order Response: {order_response}")
+                        else:
+                            print("\nInsufficient USDT balance to place minimum order")
+                    else:
+                        print("\nNo USDT balance available for buying MNTL")
                     
                 else:  # Need to sell
                     print(f"\nPlacing sell_market order for {abs_difference} MNTL")
