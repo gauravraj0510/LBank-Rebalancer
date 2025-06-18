@@ -75,9 +75,42 @@ HTTP request
 
 request parameters
 
-| Parameter name | Parameter type | Required    | Description |
+ Parameter name | Parameter type | Required    | Description |
 | -------- | ------- | -------- | ------- |
 | sign  | string    | is  | signature of request parameter
 api_key    |
 | api_key | string     | is  | The api_key applied by the user    |
 
+# Place an order
+
+return example:
+```
+{
+  "order_id":"12074652-d827-4f8d-8f52-92a005c6ce53",
+  "symbol": "lbk_usdt",
+  "custom_id": "12074652-d827"
+}
+```
+HTTP request
+POST `/v2/supplement/create_order.do`
+
+request parameters
+
+| Parameter name | Parameter type | Required | Description |
+| -------- | ------- | -------- | ------- |
+
+| api_key	| String |	is	| the api_key applied by the user |
+
+symbol |	String |	Yes	| Transaction pair eth_btc: Ethereum; zec_btc: Zerocoin
+
+type |	String	| yes	| The type of the order, including buy, sell, buy_market, sell_market, buy_maker, sell_maker, buy_ioc, sell_ioc, buy_fok, sell_fok
+
+price	| String | Reference description	| Order price Buy and sell orders: greater than or equal to 0
+
+amount |	String	| Reference description	| Amount of transactions Sell order and sell order: BTC amount is greater than or equal to 0.001
+
+sign |	String	| is	| signature of request parameter
+
+custom_id	| String | No	| User-defined ID, do not repeat by yourself
+
+window	| Long |	No	| Expiration time of order, milliseconds, automatic cancellation of order after timeout (considering the public network time, it is recommended not to exceed 5s)

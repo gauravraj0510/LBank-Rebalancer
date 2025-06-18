@@ -99,6 +99,37 @@ class LBankAPI:
         
         return response.json()
 
+    def place_market_order(self, symbol: str, order_type: str, amount: str) -> Dict[str, Any]:
+        """Place a market order on LBANK"""
+        timestamp = self._get_server_timestamp()
+        echostr = "P3LHfw6tUIYWc8R2VQNy0ilKmdg5pjhbxC7"
+        
+        params = {
+            "api_key": self.api_key,
+            "symbol": symbol,
+            "type": order_type,
+            "amount": amount,
+            "timestamp": timestamp,
+            "echostr": echostr,
+            "signature_method": "RSA"
+        }
+        
+        # Generate signature
+        params["sign"] = self._generate_signature(params)
+        
+        # Make API request
+        headers = {
+            "contentType": "application/x-www-form-urlencoded"
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/v2/supplement/create_order.do",
+            data=params,
+            headers=headers
+        )
+        
+        return response.json()
+
 def main():
     # Get API credentials from user
     api_key = input("Please enter your LBANK API key: ")
@@ -152,22 +183,42 @@ def main():
         else:
             print("No usdt balance found")
             
-        # Check balance difference
+        # Check balance difference and place orders if needed
         target_balance = 60000
         min_difference = 11500
         
         if mntl_balance:
             current_balance = float(mntl_balance['free']) + float(mntl_balance['locked'])
-            difference = abs(current_balance - target_balance)
+            difference = current_balance - target_balance
+            abs_difference = abs(difference)
             
             print("\nBalance Difference Check:")
             print("-" * 40)
             print(f"Current Balance: {current_balance}")
             print(f"Target Balance: {target_balance}")
-            print(f"Difference: {difference}")
+            print(f"Difference: {abs_difference}")
             
-            if difference > min_difference:
+            if abs_difference > min_difference:
                 print("\nStatus: Action Required")
+                
+                # Place market order based on difference
+                if difference < 0:  # Need to buy
+                    print(f"\nPlacing buy_market order for {abs_difference} MNTL")
+                    order_response = client.place_market_order(
+                        symbol="mntl_usdt",
+                        order_type="buy_market",
+                        amount=str(abs_difference)
+                    )
+                    print(f"Order Response: {order_response}")
+                    
+                else:  # Need to sell
+                    print(f"\nPlacing sell_market order for {abs_difference} MNTL")
+                    order_response = client.place_market_order(
+                        symbol="mntl_usdt",
+                        order_type="sell_market",
+                        amount=str(abs_difference)
+                    )
+                    print(f"Order Response: {order_response}")
             else:
                 print("\nStatus: No Action Required")
             
