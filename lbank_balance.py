@@ -292,7 +292,7 @@ def main():
     client = LBankAPI(api_key, secret_key)
     
     # Set the interval in seconds
-    DELTA = 300
+    DELTA = 120
     
     print(f"\nStarting continuous rebalancing with {DELTA}-second intervals...")
     print("Press Ctrl+C to stop the script")
