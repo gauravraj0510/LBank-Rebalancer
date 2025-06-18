@@ -109,6 +109,7 @@ class LBankAPI:
             "symbol": symbol,
             "type": order_type,
             "amount": amount,
+            "price": "0",  # For market orders, price should be 0
             "timestamp": timestamp,
             "echostr": echostr,
             "signature_method": "RSA"
