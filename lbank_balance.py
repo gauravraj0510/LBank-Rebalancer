@@ -2,6 +2,7 @@ import requests
 import hashlib
 import base64
 import json
+import time
 from typing import Dict, Any
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
@@ -146,26 +147,11 @@ class LBankAPI:
         
         return response.json()
 
-def main():
-    # Get API credentials from user
-    api_key = input("Please enter your LBANK API key: ")
-    secret_key = input("Please enter your LBANK Secret key: ")
-    
-    # Initialize API client
-    client = LBankAPI(api_key, secret_key)
-    
+def check_and_rebalance(client: LBankAPI):
+    """Check balance and rebalance if needed"""
     try:
         # Get account balance
         response = client.get_account_balance()
-        
-        # Print root variables
-        # print("\nResponse Root Variables:")
-        # print("-" * 40)
-        # for key, value in response.items():
-        #     if isinstance(value, (list, tuple)):
-        #         print(trim_print(f"{key}: Array with {len(value)} items"))
-        #     else:
-        #         print(trim_print(f"{key}: {value}"))
         
         # Extract mntl and usdt balances from the nested structure
         mntl_balance = None
@@ -240,6 +226,37 @@ def main():
             
     except Exception as e:
         print(f"Error occurred: {str(e)}")
+
+def main():
+    # Get API credentials from user (only once at startup)
+    print("Please enter your LBANK API credentials (will be reused for all checks):")
+    api_key = input("API key: ")
+    secret_key = input("Secret key: ")
+    
+    # Initialize API client
+    client = LBankAPI(api_key, secret_key)
+    
+    # Set the interval in seconds
+    DELTA = 300
+    
+    print(f"\nStarting continuous rebalancing with {DELTA}-second intervals...")
+    print("Press Ctrl+C to stop the script")
+    
+    try:
+        while True:
+            print(f"\n{'='*50}")
+            print(f"Running check at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"{'='*50}")
+            
+            check_and_rebalance(client)
+            
+            print(f"\nWaiting {DELTA} seconds until next check...")
+            time.sleep(DELTA)
+            
+    except KeyboardInterrupt:
+        print("\nScript stopped by user")
+    except Exception as e:
+        print(f"\nUnexpected error occurred: {str(e)}")
 
 if __name__ == "__main__":
     main() 
