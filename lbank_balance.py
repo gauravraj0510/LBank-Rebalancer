@@ -105,37 +105,44 @@ def main():
         # Get account balance
         balance_data = client.get_account_balance()
         
-        # Extract MNTL and USDT balances
+        # Print root variables
+        print("\nResponse Root Variables:")
+        print("-" * 40)
+        for key, value in balance_data.items():
+            if isinstance(value, (list, tuple)):
+                print(f"{key}: Array with {len(value)} items")
+            else:
+                print(f"{key}: {value}")
+        
+        # Extract mntl and usdt balances
         mntl_balance = None
         usdt_balance = None
         
-        print(f"\nDebug - Full balance data: {json.dumps(balance_data, indent=2)}")
-        
         for balance in balance_data.get("balances", []):
-            if balance["asset"] == "MNTL":
+            if balance["asset"].lower() == "mntl":
                 mntl_balance = balance
-            elif balance["asset"] == "USDT":
+            elif balance["asset"].lower() == "usdt":
                 usdt_balance = balance
         
         # Display results
-        print("\nAccount Balances:")
+        print("\nToken Balances:")
         print("-" * 40)
         
         if mntl_balance:
-            print(f"MNTL Balance:")
+            print(f"mntl Balance:")
             print(f"  Free: {mntl_balance['free']}")
             print(f"  Locked: {mntl_balance['locked']}")
         else:
-            print("No MNTL balance found")
+            print("No mntl balance found")
             
         print()
         
         if usdt_balance:
-            print(f"USDT Balance:")
+            print(f"usdt Balance:")
             print(f"  Free: {usdt_balance['free']}")
             print(f"  Locked: {usdt_balance['locked']}")
         else:
-            print("No USDT balance found")
+            print("No usdt balance found")
             
     except Exception as e:
         print(f"Error occurred: {str(e)}")
