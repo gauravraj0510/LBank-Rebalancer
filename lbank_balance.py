@@ -152,6 +152,25 @@ def main():
         else:
             print("No usdt balance found")
             
+        # Check balance difference
+        target_balance = 60000
+        min_difference = 11500
+        
+        if mntl_balance:
+            current_balance = float(mntl_balance['free']) + float(mntl_balance['locked'])
+            difference = abs(current_balance - target_balance)
+            
+            print("\nBalance Difference Check:")
+            print("-" * 40)
+            print(f"Current Balance: {current_balance}")
+            print(f"Target Balance: {target_balance}")
+            print(f"Difference: {difference}")
+            
+            if difference > min_difference:
+                print("\nStatus: Action Required")
+            else:
+                print("\nStatus: No Action Required")
+            
     except Exception as e:
         print(f"Error occurred: {str(e)}")
 
