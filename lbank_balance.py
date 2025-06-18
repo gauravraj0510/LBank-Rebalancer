@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
-from Crypto.Hash import MD5
+from Crypto.Hash import SHA256
 
 class LBankAPI:
     def __init__(self, api_key: str, secret_key: str):
@@ -18,6 +18,17 @@ class LBankAPI:
         response = requests.get(f"{self.base_url}/v2/timestamp.do")
         return response.json()["data"]
         
+    def _get_private_key(self, key: str) -> RSA.RsaKey:
+        """Convert base64 encoded private key to RSA key"""
+        try:
+            # Decode base64 key
+            key_bytes = base64.b64decode(key)
+            # Import as RSA key
+            return RSA.import_key(key_bytes)
+        except Exception as e:
+            print(f"Error loading private key: {str(e)}")
+            raise
+        
     def _generate_signature(self, params: Dict[str, Any]) -> str:
         # Sort parameters alphabetically
         sorted_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
@@ -27,19 +38,24 @@ class LBankAPI:
         md5_hash = hashlib.md5(sorted_params.encode()).hexdigest().upper()
         print(f"Debug - MD5 hash: {md5_hash}")
         
-        # Convert secret key to RSA key
-        # Format the secret key as a proper PEM format
-        pem_key = f"-----BEGIN RSA PRIVATE KEY-----\n{self.secret_key}\n-----END RSA PRIVATE KEY-----"
-        rsa_key = RSA.import_key(pem_key)
-        
-        # Create signature using RSA
-        hash_obj = MD5.new(md5_hash.encode())
-        signature = pkcs1_15.new(rsa_key).sign(hash_obj)
-        
-        # Base64 encode the signature
-        final_signature = base64.b64encode(signature).decode()
-        print(f"Debug - Final signature: {final_signature}")
-        return final_signature
+        try:
+            # Get private key
+            private_key = self._get_private_key(self.secret_key)
+            
+            # Create SHA256 hash of the MD5 hash
+            hash_obj = SHA256.new(md5_hash.encode())
+            
+            # Sign using SHA256WithRSA
+            signature = pkcs1_15.new(private_key).sign(hash_obj)
+            
+            # Base64 encode the signature
+            final_signature = base64.b64encode(signature).decode()
+            print(f"Debug - Final signature: {final_signature}")
+            return final_signature
+            
+        except Exception as e:
+            print(f"Error generating signature: {str(e)}")
+            raise
 
     def get_account_balance(self) -> Dict[str, Any]:
         # Get server timestamp
