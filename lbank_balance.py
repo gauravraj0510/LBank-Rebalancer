@@ -109,8 +109,8 @@ class LBankAPI:
         amount_float = float(amount)
         
         # Minimum order quantities
-        MIN_MNTL_QUANTITY = 11000  # Minimum MNTL amount for sell orders
-        MIN_USDT_QUANTITY = 5     # Minimum USDT amount for buy orders
+        MIN_MNTL_QUANTITY = 5500  # Minimum MNTL amount for sell orders
+        MIN_USDT_QUANTITY = 2.5    # Minimum USDT amount for buy orders
         
         # Check minimum quantity based on order type
         if order_type.startswith("buy"):
@@ -122,18 +122,28 @@ class LBankAPI:
             print(f"\nWarning: Order amount {amount_float} is below minimum quantity {min_quantity}")
             return {"result": False, "msg": "Order amount below minimum quantity"}
         
-        # For market buy orders, we specify USDT amount
-        # For market sell orders, we specify token amount
-        params = {
-            "api_key": self.api_key,
-            "symbol": symbol,
-            "type": order_type,
-            "amount": amount,
-            "price": "0",  # For market orders, price should be 0
-            "timestamp": timestamp,
-            "echostr": echostr,
-            "signature_method": "RSA"
-        }
+        # For buy_market: price parameter is USDT amount to spend
+        # For sell_market: amount parameter is MNTL amount to sell
+        if order_type == "buy_market":
+            params = {
+                "api_key": self.api_key,
+                "symbol": symbol,
+                "type": order_type,
+                "price": amount,  # USDT amount to spend
+                "timestamp": timestamp,
+                "echostr": echostr,
+                "signature_method": "RSA"
+            }
+        else:  # sell_market
+            params = {
+                "api_key": self.api_key,
+                "symbol": symbol,
+                "type": order_type,
+                "amount": amount,  # MNTL amount to sell
+                "timestamp": timestamp,
+                "echostr": echostr,
+                "signature_method": "RSA"
+            }
         
         # Generate signature
         params["sign"] = self._generate_signature(params)
@@ -145,8 +155,10 @@ class LBankAPI:
         
         print(f"\nPlacing {order_type} order with parameters:")
         print(f"Symbol: {symbol}")
-        print(f"Amount: {amount}")
-        print(f"Price: 0")
+        if order_type == "buy_market":
+            print(f"Price (USDT to spend): {amount}")
+        else:
+            print(f"Amount (MNTL to sell): {amount}")
         
         response = requests.post(
             f"{self.base_url}/v2/supplement/create_order.do",
