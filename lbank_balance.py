@@ -21,12 +21,15 @@ class LBankAPI:
     def _generate_signature(self, params: Dict[str, Any]) -> str:
         # Sort parameters alphabetically
         sorted_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
+        print(f"\nDebug - Sorted parameters: {sorted_params}")
         
         # Create MD5 hash of parameters and convert to uppercase
         md5_hash = hashlib.md5(sorted_params.encode()).hexdigest().upper()
+        print(f"Debug - MD5 hash: {md5_hash}")
         
         # Base64 encode the preparedStr (md5_hash) before signing
         prepared_str = base64.b64encode(md5_hash.encode()).decode()
+        print(f"Debug - Prepared string (Base64): {prepared_str}")
         
         # Convert secret key to RSA key
         # Format the secret key as a proper PEM format
@@ -38,7 +41,9 @@ class LBankAPI:
         signature = pkcs1_15.new(rsa_key).sign(hash_obj)
         
         # Base64 encode the signature
-        return base64.b64encode(signature).decode()
+        final_signature = base64.b64encode(signature).decode()
+        print(f"Debug - Final signature: {final_signature}")
+        return final_signature
 
     def get_account_balance(self) -> Dict[str, Any]:
         # Get server timestamp
@@ -60,11 +65,19 @@ class LBankAPI:
             "contentType": "application/x-www-form-urlencoded"
         }
         
+        print(f"\nDebug - Request URL: {self.base_url}/v2/supplement/user_info_account.do")
+        print(f"Debug - Request Headers: {headers}")
+        print(f"Debug - Request Parameters: {params}")
+        
         response = requests.post(
             f"{self.base_url}/v2/supplement/user_info_account.do",
             data=params,
             headers=headers
         )
+        
+        print(f"\nDebug - Response Status Code: {response.status_code}")
+        print(f"Debug - Response Headers: {response.headers}")
+        print(f"Debug - Response Content: {response.text}")
         
         return response.json()
 
@@ -83,6 +96,8 @@ def main():
         # Extract MNTL and USDT balances
         mntl_balance = None
         usdt_balance = None
+        
+        print(f"\nDebug - Full balance data: {json.dumps(balance_data, indent=2)}")
         
         for balance in balance_data.get("balances", []):
             if balance["asset"] == "MNTL":
