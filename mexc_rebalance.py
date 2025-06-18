@@ -76,8 +76,15 @@ class MEXCClient:
             'symbol': symbol,
             'side': side,
             'type': type,
-            'quantity': quantity
         }
+        
+        if side == 'BUY' and type == 'MARKET':
+            # For market buy, use quoteOrderQty (USDT amount)
+            params['quoteOrderQty'] = quantity
+        else:
+            # For market sell, use quantity (MNTL amount)
+            params['quantity'] = quantity
+            
         return self.private_request('POST', '/api/v3/order', params).json()
 
 def get_api_credentials() -> Tuple[str, str]:
@@ -144,7 +151,9 @@ class BalanceRebalancer:
         Calculate required trade to rebalance USDT balance
         
         Returns:
-            Tuple of (symbol, quantity, side) or None if no trade needed
+            Tuple of (symbol, amount, side) where amount is:
+            - For BUY: USDT amount to spend
+            - For SELL: MNTL amount to sell
         """
         current_usdt = current_balances.get('USDT', 0.0)
         current_mntl = current_balances.get('MNTL', 0.0)
@@ -164,19 +173,21 @@ class BalanceRebalancer:
             
         if usdt_deviation > 0:
             # Too much USDT, need to buy MNTL
-            quantity = usdt_deviation / mntl_price
-            logging.info(f"USDT above target, will BUY {quantity:.4f} MNTL worth {usdt_deviation:.2f} USDT")
-            return (self.symbol, quantity, 'BUY')
+            # For market buy, we specify the USDT amount to spend
+            usdt_amount = usdt_deviation
+            logging.info(f"USDT above target, will BUY MNTL worth {usdt_amount:.2f} USDT")
+            return (self.symbol, usdt_amount, 'BUY')
         else:
             # Too little USDT, need to sell MNTL
-            quantity = abs(usdt_deviation) / mntl_price
+            # For market sell, we specify the MNTL amount to sell
+            mntl_amount = abs(usdt_deviation) / mntl_price
             # Check if we have enough MNTL
-            if quantity > current_mntl:
-                quantity = current_mntl
-                logging.info(f"Not enough MNTL, will sell all available: {quantity:.4f} MNTL")
+            if mntl_amount > current_mntl:
+                mntl_amount = current_mntl
+                logging.info(f"Not enough MNTL, will sell all available: {mntl_amount:.4f} MNTL")
             else:
-                logging.info(f"USDT below target, will SELL {quantity:.4f} MNTL worth {abs(usdt_deviation):.2f} USDT")
-            return (self.symbol, quantity, 'SELL')
+                logging.info(f"USDT below target, will SELL {mntl_amount:.4f} MNTL worth {abs(usdt_deviation):.2f} USDT")
+            return (self.symbol, mntl_amount, 'SELL')
 
     def execute_trade(self, symbol: str, quantity: float, side: str) -> bool:
         """Execute a single trade"""
