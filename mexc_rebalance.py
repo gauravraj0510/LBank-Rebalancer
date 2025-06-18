@@ -4,6 +4,7 @@ import getpass
 import requests
 import hmac
 import hashlib
+import math
 from urllib.parse import urlencode, quote
 from typing import Dict, List, Tuple
 
@@ -12,6 +13,11 @@ TARGET_USDT = 40  # Target USDT balance to maintain
 TRADING_PAIR = "MNTLUSDT"  # Trading pair
 THRESHOLD = 0.05  # 5% deviation threshold for rebalancing
 MEXC_HOST = "https://api.mexc.com"
+
+# Trading rules for MNTL-USDT
+QUANTITY_PRECISION = 0  # MNTL quantity should be rounded to whole numbers
+PRICE_PRECISION = 8    # Price precision for MNTL-USDT
+MIN_QUANTITY = 1       # Minimum quantity for MNTL-USDT
 
 # Configure logging
 logging.basicConfig(
@@ -80,10 +86,12 @@ class MEXCClient:
         
         if side == 'BUY' and type == 'MARKET':
             # For market buy, use quoteOrderQty (USDT amount)
-            params['quoteOrderQty'] = quantity
+            # Round USDT amount to 2 decimal places
+            params['quoteOrderQty'] = round(quantity, 2)
         else:
             # For market sell, use quantity (MNTL amount)
-            params['quantity'] = quantity
+            # Round MNTL quantity to whole numbers
+            params['quantity'] = math.floor(quantity)  # Round down to ensure we don't exceed available balance
             
         return self.private_request('POST', '/api/v3/order', params).json()
 
@@ -174,19 +182,28 @@ class BalanceRebalancer:
         if usdt_deviation > 0:
             # Too much USDT, need to buy MNTL
             # For market buy, we specify the USDT amount to spend
-            usdt_amount = usdt_deviation
+            usdt_amount = round(usdt_deviation, 2)  # Round USDT amount to 2 decimal places
             logging.info(f"USDT above target, will BUY MNTL worth {usdt_amount:.2f} USDT")
             return (self.symbol, usdt_amount, 'BUY')
         else:
             # Too little USDT, need to sell MNTL
             # For market sell, we specify the MNTL amount to sell
             mntl_amount = abs(usdt_deviation) / mntl_price
+            # Round down to whole number for MNTL quantity
+            mntl_amount = math.floor(mntl_amount)
+            
             # Check if we have enough MNTL
             if mntl_amount > current_mntl:
-                mntl_amount = current_mntl
-                logging.info(f"Not enough MNTL, will sell all available: {mntl_amount:.4f} MNTL")
+                mntl_amount = math.floor(current_mntl)  # Round down available MNTL
+                logging.info(f"Not enough MNTL, will sell all available: {mntl_amount} MNTL")
             else:
-                logging.info(f"USDT below target, will SELL {mntl_amount:.4f} MNTL worth {abs(usdt_deviation):.2f} USDT")
+                logging.info(f"USDT below target, will SELL {mntl_amount} MNTL worth {abs(usdt_deviation):.2f} USDT")
+            
+            # Ensure minimum quantity
+            if mntl_amount < MIN_QUANTITY:
+                logging.info(f"Calculated quantity {mntl_amount} is below minimum {MIN_QUANTITY}, skipping trade")
+                return None
+                
             return (self.symbol, mntl_amount, 'SELL')
 
     def execute_trade(self, symbol: str, quantity: float, side: str) -> bool:
