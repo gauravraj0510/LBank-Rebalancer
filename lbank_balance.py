@@ -104,12 +104,22 @@ class LBankAPI:
         timestamp = self._get_server_timestamp()
         echostr = "P3LHfw6tUIYWc8R2VQNy0ilKmdg5pjhbxC7"
         
+        # Convert amount to float for comparison
+        amount_float = float(amount)
+        
+        # Minimum order quantity for MNTL (adjust this value based on exchange requirements)
+        MIN_ORDER_QUANTITY = 11000
+        
+        if amount_float < MIN_ORDER_QUANTITY:
+            print(f"\nWarning: Order amount {amount_float} is below minimum quantity {MIN_ORDER_QUANTITY}")
+            return {"result": False, "msg": "Order amount below minimum quantity"}
+        
         params = {
             "api_key": self.api_key,
             "symbol": symbol,
             "type": order_type,
             "amount": amount,
-            "price": "0",  # For market orders, price should be 0
+            "price": "1",  # For market orders, price should be 0
             "timestamp": timestamp,
             "echostr": echostr,
             "signature_method": "RSA"
@@ -122,6 +132,11 @@ class LBankAPI:
         headers = {
             "contentType": "application/x-www-form-urlencoded"
         }
+        
+        print(f"\nPlacing {order_type} order with parameters:")
+        print(f"Symbol: {symbol}")
+        print(f"Amount: {amount}")
+        print(f"Price: 0")
         
         response = requests.post(
             f"{self.base_url}/v2/supplement/create_order.do",
