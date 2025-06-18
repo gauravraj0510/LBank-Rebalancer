@@ -226,23 +226,20 @@ def check_and_rebalance(client: LBankAPI):
                     # Calculate maximum possible buy amount based on USDT balance
                     if usdt_balance:
                         available_usdt = float(usdt_balance['free'])
-                        max_mntl_to_buy = available_usdt / current_price
-                        
-                        # Use the smaller of the two amounts
-                        order_amount = min(abs_difference, max_mntl_to_buy)
+                        # For market buy, we specify the USDT amount to spend
+                        usdt_to_spend = min(available_usdt, abs_difference * current_price)
                         
                         print(f"\nAvailable USDT: {available_usdt}")
                         print(f"Current MNTL price: {current_price} USDT")
-                        print(f"Maximum MNTL to buy: {max_mntl_to_buy}")
-                        print(f"Desired amount: {abs_difference}")
-                        print(f"Final order amount: {order_amount}")
+                        print(f"USDT to spend: {usdt_to_spend}")
+                        print(f"Expected MNTL to receive: {usdt_to_spend / current_price}")
                         
-                        if order_amount >= 11000:  # Minimum order quantity
-                            print(f"\nPlacing buy_market order for {order_amount} MNTL")
+                        if usdt_to_spend >= 11000 * current_price:  # Minimum order value in USDT
+                            print(f"\nPlacing buy_market order for {usdt_to_spend} USDT")
                             order_response = client.place_market_order(
                                 symbol="mntl_usdt",
                                 order_type="buy_market",
-                                amount=str(order_amount)
+                                amount=str(usdt_to_spend)
                             )
                             print(f"Order Response: {order_response}")
                         else:
