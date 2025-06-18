@@ -27,17 +27,13 @@ class LBankAPI:
         md5_hash = hashlib.md5(sorted_params.encode()).hexdigest().upper()
         print(f"Debug - MD5 hash: {md5_hash}")
         
-        # Base64 encode the preparedStr (md5_hash) before signing
-        prepared_str = base64.b64encode(md5_hash.encode()).decode()
-        print(f"Debug - Prepared string (Base64): {prepared_str}")
-        
         # Convert secret key to RSA key
         # Format the secret key as a proper PEM format
         pem_key = f"-----BEGIN RSA PRIVATE KEY-----\n{self.secret_key}\n-----END RSA PRIVATE KEY-----"
         rsa_key = RSA.import_key(pem_key)
         
         # Create signature using RSA
-        hash_obj = MD5.new(prepared_str.encode())
+        hash_obj = MD5.new(md5_hash.encode())
         signature = pkcs1_15.new(rsa_key).sign(hash_obj)
         
         # Base64 encode the signature
