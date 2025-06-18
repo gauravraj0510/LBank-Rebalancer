@@ -29,7 +29,9 @@ class LBankAPI:
         prepared_str = base64.b64encode(md5_hash.encode()).decode()
         
         # Convert secret key to RSA key
-        rsa_key = RSA.import_key(self.secret_key)
+        # Format the secret key as a proper PEM format
+        pem_key = f"-----BEGIN RSA PRIVATE KEY-----\n{self.secret_key}\n-----END RSA PRIVATE KEY-----"
+        rsa_key = RSA.import_key(pem_key)
         
         # Create signature using RSA
         hash_obj = MD5.new(prepared_str.encode())
