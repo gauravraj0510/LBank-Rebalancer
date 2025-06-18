@@ -241,7 +241,7 @@ def check_and_rebalance(client: LBankAPI):
                         print(f"USDT to spend: {usdt_to_spend}")
                         print(f"Expected MNTL to receive: {usdt_to_spend / current_price}")
                         
-                        if usdt_to_spend >= 10:  # Minimum USDT order value
+                        if usdt_to_spend >= 5:  # Minimum USDT order value
                             print(f"\nPlacing buy_market order for {usdt_to_spend} USDT")
                             order_response = client.place_market_order(
                                 symbol="mntl_usdt",
@@ -250,7 +250,7 @@ def check_and_rebalance(client: LBankAPI):
                             )
                             print(f"Order Response: {order_response}")
                         else:
-                            print("\nInsufficient USDT balance to place minimum order")
+                            print(f"\nInsufficient USDT balance ({usdt_to_spend} USDT) to meet minimum order requirement (5 USDT)")
                     else:
                         print("\nNo USDT balance available for buying MNTL")
                     
