@@ -8,7 +8,7 @@ from urllib.parse import urlencode, quote
 from typing import Dict, List, Tuple
 
 DELTA = 120  # Time between rebalancing checks in seconds
-TARGET_USDT = 1000  # Target USDT balance to maintain
+TARGET_USDT = 40  # Target USDT balance to maintain
 TRADING_PAIR = "MNTLUSDT"  # Trading pair
 THRESHOLD = 0.05  # 5% deviation threshold for rebalancing
 MEXC_HOST = "https://api.mexc.com"
