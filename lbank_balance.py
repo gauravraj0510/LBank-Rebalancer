@@ -109,26 +109,28 @@ def main():
     
     try:
         # Get account balance
-        balance_data = client.get_account_balance()
+        response = client.get_account_balance()
         
         # Print root variables
         print("\nResponse Root Variables:")
         print("-" * 40)
-        for key, value in balance_data.items():
+        for key, value in response.items():
             if isinstance(value, (list, tuple)):
                 print(trim_print(f"{key}: Array with {len(value)} items"))
             else:
                 print(trim_print(f"{key}: {value}"))
         
-        # Extract mntl and usdt balances
+        # Extract mntl and usdt balances from the nested structure
         mntl_balance = None
         usdt_balance = None
         
-        for balance in balance_data.get("balances", []):
-            if balance["asset"].lower() == "mntl":
-                mntl_balance = balance
-            elif balance["asset"].lower() == "usdt":
-                usdt_balance = balance
+        if response.get("result") == "true" and "data" in response:
+            balances = response["data"].get("balances", [])
+            for balance in balances:
+                if balance["asset"].lower() == "mntl":
+                    mntl_balance = balance
+                elif balance["asset"].lower() == "usdt":
+                    usdt_balance = balance
         
         # Display results
         print("\nToken Balances:")
