@@ -238,7 +238,7 @@ class BalanceRebalancer:
         except Exception as e:
             logging.error(f"Error during rebalancing: {e}")
 
-def main():
+def main(api_key=None, secret_key=None):
     print("=== MEXC MNTL-USDT Rebalancer ===")
     print(f"Target USDT Balance: {TARGET_USDT}")
     print(f"Rebalancing Threshold: {THRESHOLD*100}%")
@@ -246,25 +246,19 @@ def main():
     print(f"Check Interval: {DELTA} seconds")
     
     # Get API credentials
-    api_key, secret_key = get_api_credentials()
+    if api_key is None or secret_key is None:
+        api_key, secret_key = get_api_credentials()
     
     # Initialize rebalancer
     rebalancer = BalanceRebalancer(TARGET_USDT, api_key, secret_key)
     
-    print("\nStarting rebalancing process...")
-    print("Press Ctrl+C to stop at any time")
-    
-    while True:
-        try:
-            rebalancer.rebalance()
-            # Wait for DELTA before next check
-            time.sleep(DELTA)
-        except KeyboardInterrupt:
-            logging.info("Rebalancing stopped by user")
-            break
-        except Exception as e:
-            logging.error(f"Unexpected error: {e}")
-            time.sleep(60)  # Wait a minute before retrying
+    print("\nRunning one rebalancing cycle...")
+    try:
+        rebalancer.rebalance()
+    except KeyboardInterrupt:
+        logging.info("Rebalancing stopped by user")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
     main() 

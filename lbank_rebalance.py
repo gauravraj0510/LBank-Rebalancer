@@ -282,34 +282,21 @@ def check_and_rebalance(client: LBankAPI):
     except Exception as e:
         print(f"Error occurred: {str(e)}")
 
-def main():
+def main(api_key=None, secret_key=None):
     # Get API credentials from user (only once at startup)
-    print("Please enter your LBANK API credentials (will be reused for all checks):")
-    api_key = input("API key: ")
-    secret_key = input("Secret key: ")
+    if api_key is None or secret_key is None:
+        print("Please enter your LBANK API credentials (will be reused for all checks):")
+        api_key = input("API key: ")
+        secret_key = input("Secret key: ")
     
     # Initialize API client
     client = LBankAPI(api_key, secret_key)
     
-    # Set the interval in seconds
-    DELTA = 120
-    
-    print(f"\nStarting continuous rebalancing with {DELTA}-second intervals...")
-    print("Press Ctrl+C to stop the script")
-    
     try:
-        while True:
-            print(f"\n{'='*50}")
-            print(f"Running check at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"{'='*50}")
-            
-            check_and_rebalance(client)
-            
-            print(f"\nWaiting {DELTA} seconds until next check...")
-            time.sleep(DELTA)
-            
-    except KeyboardInterrupt:
-        print("\nScript stopped by user")
+        print(f"\n{'='*50}")
+        print(f"Running LBANK rebalance at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"{'='*50}")
+        check_and_rebalance(client)
     except Exception as e:
         print(f"\nUnexpected error occurred: {str(e)}")
 
