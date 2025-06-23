@@ -109,7 +109,7 @@ class LBankAPI:
         amount_float = float(amount)
         
         # Minimum order quantities
-        MIN_MNTL_QUANTITY = 5500  # Minimum MNTL amount for sell orders
+        MIN_MNTL_QUANTITY = 2500  # Minimum MNTL amount for sell orders
         MIN_USDT_QUANTITY = 2.5    # Minimum USDT amount for buy orders
         
         # Check minimum quantity based on order type
