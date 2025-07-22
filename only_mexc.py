@@ -9,7 +9,7 @@ from urllib.parse import urlencode, quote
 from typing import Dict, List, Tuple
 
 DELTA = 120  # Time between rebalancing checks in seconds
-TARGET_USDT = 100  # Target USDT balance to maintain
+TARGET_USDT = 500  # Target USDT balance to maintain
 TRADING_PAIR = "MNTLUSDT"  # Trading pair
 THRESHOLD = 0.05  # 5% deviation threshold for rebalancing
 MEXC_HOST = "https://api.mexc.com"
@@ -116,6 +116,28 @@ def get_api_credentials() -> Tuple[str, str]:
     
     return api_key, secret_key
 
+MNTL_WARNING_BALANCE = 100000  # Warning threshold for MNTL balance
+
+# Telegram configuration
+TELEGRAM_BOT_TOKEN = "<YOUR_TELEGRAM_BOT_TOKEN>"  # Replace with your bot token
+TELEGRAM_CHAT_ID = "<YOUR_TELEGRAM_CHAT_ID>"      # Replace with your chat ID
+
+def send_telegram_message(message: str):
+    """
+    Send a message to a Telegram channel using a bot.
+    """
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message
+    }
+    try:
+        response = requests.post(url, data=payload)
+        if response.status_code != 200:
+            logging.error(f"Failed to send Telegram message: {response.text}")
+    except Exception as e:
+        logging.error(f"Exception while sending Telegram message: {e}")
+
 class BalanceRebalancer:
     def __init__(self, target_usdt: float, api_key: str, secret_key: str, threshold: float = THRESHOLD):
         """
@@ -216,10 +238,22 @@ class BalanceRebalancer:
             logging.error(f"Error executing trade: {e}")
             return False
 
+    def check_mntl_warning_balance(self, current_balances: Dict[str, float]):
+        """
+        Check if MNTL balance is below warning threshold and send Telegram alert if needed.
+        """
+        mntl_balance = current_balances.get('MNTL', 0.0)
+        if mntl_balance < MNTL_WARNING_BALANCE:
+            message = (f"⚠️ MNTL balance is low: {mntl_balance} MNTL (below warning threshold of {MNTL_WARNING_BALANCE})")
+            logging.warning(message)
+            send_telegram_message(message)
+
     def rebalance(self):
         """Main rebalancing function"""
         try:
             current_balances = self.get_current_balances()
+            # Check MNTL warning balance before rebalancing
+            self.check_mntl_warning_balance(current_balances)
             trade = self.calculate_rebalance_trade(current_balances)
             
             if not trade:
