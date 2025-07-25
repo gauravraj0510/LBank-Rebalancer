@@ -7,9 +7,12 @@ import hashlib
 import math
 from urllib.parse import urlencode, quote
 from typing import Dict, List, Tuple
+import threading
 
 DELTA = 120  # Time between rebalancing checks in seconds
-TARGET_USDT = 500  # Target USDT balance to maintain
+VOLUME_TIME = 10  # Time between order manager executions in seconds
+TARGET_USDT = 1900  # Target USDT balance to maintain
+MNTL_QUANTITY = 44000 # MNTL quantity to buy/sell
 TRADING_PAIR = "MNTLUSDT"  # Trading pair
 THRESHOLD = 0.05  # 5% deviation threshold for rebalancing
 MEXC_HOST = "https://api.mexc.com"
@@ -73,8 +76,8 @@ class MEXCClient:
         return self.private_request('GET', '/api/v3/account').json()
 
     def get_price(self, symbol: str):
-        """Get current price for a symbol"""
-        return self.public_request('GET', '/api/v3/ticker/price', {'symbol': symbol}).json()
+        """Get current price for a symbol (signed request for assetment zone compatibility)"""
+        return self.private_request('GET', '/api/v3/ticker/price', {'symbol': symbol}).json()
 
     def place_order(self, symbol: str, side: str, type: str, quantity: float):
         """Place a new order"""
@@ -158,7 +161,11 @@ class BalanceRebalancer:
         """Get current balances for MNTL and USDT"""
         try:
             account_info = self.client.get_account_info()
+            logging.info(f"Account info response: {account_info}")  # Log the full response
             balances = {}
+            if 'balances' not in account_info:
+                logging.error(f"'balances' key not found in account info: {account_info}")
+                return {}
             for asset in account_info['balances']:
                 if asset['asset'] in ['MNTL', 'USDT']:
                     balances[asset['asset']] = float(asset['free']) + float(asset['locked'])
@@ -171,7 +178,11 @@ class BalanceRebalancer:
         """Get current market price for MNTL-USDT"""
         try:
             ticker = self.client.get_price(self.symbol)
-            return float(ticker['price'])
+            price = float(ticker.get('price', 0.0))
+            logging.info(f"Fetched price for {self.symbol}: {price}")
+            if price == 0.0:
+                logging.error(f"Fetched price is zero for {self.symbol}, skipping this cycle.")
+            return price
         except Exception as e:
             logging.error(f"Error getting price for {self.symbol}: {e}")
             return 0.0
@@ -188,6 +199,11 @@ class BalanceRebalancer:
         current_usdt = current_balances.get('USDT', 0.0)
         current_mntl = current_balances.get('MNTL', 0.0)
         mntl_price = self.get_market_price()
+        
+        # Handle zero price error
+        if mntl_price == 0.0:
+            logging.error(f"Cannot calculate rebalance trade: MNTL price is zero.")
+            return None
         
         # Calculate USDT deviation
         usdt_deviation = current_usdt - self.target_usdt
@@ -272,33 +288,148 @@ class BalanceRebalancer:
         except Exception as e:
             logging.error(f"Error during rebalancing: {e}")
 
+class OrderManager:
+    def __init__(self, client: MEXCClient, symbol: str):
+        self.client = client
+        self.symbol = symbol
+        self.saved_orders = []  # List of orderIds
+
+    def manage_orders(self):
+        """
+        Cancel all orders in saved_orders one by one and remove them from the list after cancellation.
+        If saved_orders is empty, do nothing.
+        """
+        if not self.saved_orders:
+            logging.info("No saved orders to cancel.")
+            return
+        for order_id in self.saved_orders[:]:  # Copy to avoid modification during iteration
+            try:
+                params = {
+                    'symbol': self.symbol,
+                    'orderId': order_id
+                }
+                response = self.client.private_request('DELETE', '/api/v3/order', params)
+                logging.info(f"Cancelled order {order_id}: {response.text}")
+                self.saved_orders.remove(order_id)
+            except Exception as e:
+                logging.error(f"Error cancelling order {order_id}: {e}")
+
+    def get_midpoint_price(self):
+        """
+        Fetch the order book and calculate the midpoint price from the topmost buy and sell orders.
+        Uses private_request for assetment zone compatibility.
+        """
+        params = {
+            'symbol': self.symbol,
+            'limit': 5
+        }
+        response = self.client.private_request('GET', '/api/v3/depth', params)
+        try:
+            data = response.json()
+            bids = data.get('bids', [])
+            asks = data.get('asks', [])
+            if not bids or not asks:
+                logging.error("Orderbook missing bids or asks.")
+                return None
+            top_bid = float(bids[0][0])
+            top_ask = float(asks[0][0])
+            midpoint = (top_bid + top_ask) / 2
+            logging.info(f"Top bid: {top_bid}, Top ask: {top_ask}, Midpoint: {midpoint}")
+            return midpoint
+        except Exception as e:
+            logging.error(f"Error parsing orderbook: {e}\nRaw response: {response.text}")
+            return None
+
+    def place_buy_and_sell(self, quantity=MNTL_QUANTITY):
+        """
+        Place a BUY and a SELL limit order at the midpoint price, store their orderIds in saved_orders.
+        """
+        price = self.get_midpoint_price()
+        if price is None:
+            logging.error("Cannot place orders: midpoint price not available.")
+            return
+        # Place BUY order
+        buy_params = {
+            'symbol': self.symbol,
+            'side': 'BUY',
+            'type': 'LIMIT',
+            'timeInForce': 'GTC',
+            'price': f'{price:.8f}',
+            'quantity': str(quantity)
+        }
+        buy_response = self.client.private_request('POST', '/api/v3/order', buy_params)
+        try:
+            buy_result = buy_response.json()
+            buy_order_id = buy_result.get('orderId')
+            if buy_order_id:
+                self.saved_orders.append(buy_order_id)
+                logging.info(f"Placed BUY order, orderId: {buy_order_id}")
+            else:
+                logging.error(f"BUY order response missing orderId: {buy_result}")
+        except Exception as e:
+            logging.error(f"Error parsing BUY order response: {e}\nRaw response: {buy_response.text}")
+        # Place SELL order
+        sell_params = {
+            'symbol': self.symbol,
+            'side': 'SELL',
+            'type': 'LIMIT',
+            'timeInForce': 'GTC',
+            'price': f'{price:.8f}',
+            'quantity': str(quantity)
+        }
+        sell_response = self.client.private_request('POST', '/api/v3/order', sell_params)
+        try:
+            sell_result = sell_response.json()
+            sell_order_id = sell_result.get('orderId')
+            if sell_order_id:
+                self.saved_orders.append(sell_order_id)
+                logging.info(f"Placed SELL order, orderId: {sell_order_id}")
+            else:
+                logging.error(f"SELL order response missing orderId: {sell_result}")
+        except Exception as e:
+            logging.error(f"Error parsing SELL order response: {e}\nRaw response: {sell_response.text}")
+
 def main():
     print("=== MEXC MNTL-USDT Rebalancer ===")
     print(f"Target USDT Balance: {TARGET_USDT}")
     print(f"Rebalancing Threshold: {THRESHOLD*100}%")
     print(f"Trading Pair: {TRADING_PAIR}")
     print(f"Check Interval: {DELTA} seconds")
-    
+    print(f"Order Manager Interval: {VOLUME_TIME} seconds")
+
     # Get API credentials
     api_key, secret_key = get_api_credentials()
-    
-    # Initialize rebalancer
+
+    # Initialize rebalancer and order manager
     rebalancer = BalanceRebalancer(TARGET_USDT, api_key, secret_key)
-    
-    print("\nStarting rebalancing process...")
+    client = MEXCClient(api_key, secret_key)
+    order_manager = OrderManager(client, TRADING_PAIR)
+
+    print("\nStarting rebalancing and order management process...")
     print("Press Ctrl+C to stop at any time")
-    
+
+    last_rebalance = 0
+    last_volume = 0
+
     while True:
+        now = time.time()
         try:
-            rebalancer.rebalance()
-            # Wait for DELTA before next check
-            time.sleep(DELTA)
+            # Run rebalance every DELTA seconds
+            if now - last_rebalance >= DELTA:
+                rebalancer.rebalance()
+                last_rebalance = now
+            # Run order manager every VOLUME_TIME seconds
+            if now - last_volume >= VOLUME_TIME:
+                order_manager.manage_orders()
+                order_manager.place_buy_and_sell()
+                last_volume = now
+            time.sleep(1)
         except KeyboardInterrupt:
-            logging.info("Rebalancing stopped by user")
+            logging.info("Rebalancing and order management stopped by user")
             break
         except Exception as e:
             logging.error(f"Unexpected error: {e}")
-            time.sleep(60)  # Wait a minute before retrying
+            time.sleep(5)  # Wait a bit before retrying
 
 if __name__ == "__main__":
     main() 

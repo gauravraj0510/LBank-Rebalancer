@@ -1,3 +1,5 @@
 .env
 mexc-python
 mexc-rebalance.log
+mexc_python_api_demo/
+fetch_mntl_price.py
